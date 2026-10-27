@@ -40,6 +40,9 @@ namespace LineChart.Controls
         public static readonly DirectProperty<MyLiveChart, double> StandardValueProperty =
             AvaloniaProperty.RegisterDirect<MyLiveChart, double>(nameof(StandardValue), o => o.StandardValue, (o, v) => o.StandardValue = v);
 
+        public static readonly DirectProperty<MyLiveChart, bool> IsAutoYScaleProperty =
+            AvaloniaProperty.RegisterDirect<MyLiveChart, bool>(nameof(IsAutoYScale), o => o.IsAutoYScale, (o, v) => o.IsAutoYScale = v);
+
         private object dataInput = 0.0;
         private string chartTitle = "SHXJ-LiveChart";
         private IBrush lineColor = Brushes.Cyan;
@@ -49,6 +52,7 @@ namespace LineChart.Controls
         private double upperLimit = 2500.0;
         private double lowerLimit = 500.0;
         private double standardValue = 1500.0;
+        private bool _isAutoYScale = true; // 默认启用方案A：微观局部动态自适应缩放
 
         private readonly List<double> _valueBuffer = new();
         private readonly List<DateTime> _timeBuffer = new();
@@ -63,6 +67,10 @@ namespace LineChart.Controls
 
         private Line? _upperLine, _lowerLine, _stdLine;
         private TextBlock? _upperLabel, _lowerLabel, _stdLabel;
+
+        private TextBlock? _topAxisLabel;
+        private TextBlock? _bottomAxisLabel;
+        private Button? _autoYBtn;
 
         // ======= 核心状态控制系统 =======
         private double _xStep = 25.0;          // 图表动态缩放间距（每个点在 X 轴的物理距离，初始25）
@@ -113,12 +121,17 @@ namespace LineChart.Controls
             _lowerLabel = this.FindControl<TextBlock>("LowerLimitLabel");
             _stdLabel = this.FindControl<TextBlock>("StandardLabel");
 
+            _topAxisLabel = this.FindControl<TextBlock>("TopAxisLabel");
+            _bottomAxisLabel = this.FindControl<TextBlock>("BottomAxisLabel");
+            _autoYBtn = this.FindControl<Button>("AutoYBtn");
+
             if (_canvas != null)
             {
                 _canvas.Background = Brushes.Transparent; // Make canvas hit-testable!
             }
 
             UpdateBadge();
+            UpdateAutoYBtnState();
             RedrawChart();
         }
 
@@ -145,6 +158,41 @@ namespace LineChart.Controls
         public double UpperLimit { get => upperLimit; set { SetAndRaise(UpperLimitProperty, ref upperLimit, value); RedrawChart(); } }
         public double LowerLimit { get => lowerLimit; set { SetAndRaise(LowerLimitProperty, ref lowerLimit, value); RedrawChart(); } }
         public double StandardValue { get => standardValue; set { SetAndRaise(StandardValueProperty, ref standardValue, value); RedrawChart(); } }
+
+        public bool IsAutoYScale
+        {
+            get => _isAutoYScale;
+            set
+            {
+                SetAndRaise(IsAutoYScaleProperty, ref _isAutoYScale, value);
+                UpdateAutoYBtnState();
+                RedrawChart();
+            }
+        }
+
+        private void UpdateAutoYBtnState()
+        {
+            if (_autoYBtn != null)
+            {
+                if (_isAutoYScale)
+                {
+                    _autoYBtn.Content = "🎯 微观聚焦";
+                    _autoYBtn.Background = new SolidColorBrush(Color.Parse("#0288D1"));
+                    _autoYBtn.Foreground = Brushes.White;
+                }
+                else
+                {
+                    _autoYBtn.Content = "📐 固定量程";
+                    _autoYBtn.Background = new SolidColorBrush(Color.Parse("#424242"));
+                    _autoYBtn.Foreground = Brushes.LightGray;
+                }
+            }
+        }
+
+        public void OnToggleAutoYClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            IsAutoYScale = !IsAutoYScale;
+        }
 
         public void PushValue(double val)
         {
@@ -287,7 +335,7 @@ namespace LineChart.Controls
 
         /// <summary>
         /// 核心渲染引擎：基于屏幕绝对坐标系重新结算所有的图形节点位置。
-        /// 包含双向平移空气墙约束，以及视野外渲染节点自动剔除的工业级性能优化。
+        /// 包含自适应微观局部动态聚焦算法 (方案A)、空气墙物理碰撞检测、以及视口外节点裁剪优化。
         /// </summary>
         private void RedrawChart()
         {
@@ -303,9 +351,93 @@ namespace LineChart.Controls
             double h = _canvas.Bounds.Height;
             if (w < 10 || h < 10) return;
 
-            double padding = 5.0;
+            double padding = 8.0;
             double actualH = h - 2 * padding;
+
+            // ========== 核心算法：微观局部动态自适应缩放 (方案 A) ==========
+            double currentMin = 0.0;
             double currentMax = YRangeMax > 0.1 ? YRangeMax : 1000.0;
+
+            if (_isAutoYScale)
+            {
+                // 1. 提取当前视口内可见数据点
+                var visibleVals = new List<double>();
+                for (int i = 0; i < _valueBuffer.Count; i++)
+                {
+                    double px = i * _xStep + _panX;
+                    if (px >= -50 && px <= w + 50)
+                    {
+                        visibleVals.Add(_valueBuffer[i]);
+                    }
+                }
+
+                // 视口若无点（如刚启动或拖出视线），取缓冲区尾部数据
+                if (visibleVals.Count == 0 && _valueBuffer.Count > 0)
+                {
+                    visibleVals.AddRange(_valueBuffer.TakeLast(50));
+                }
+
+                if (visibleVals.Count > 0)
+                {
+                    double minV = visibleVals.Min();
+                    double maxV = visibleVals.Max();
+                    double avgV = visibleVals.Average();
+
+                    // 判断辅助线（标准值、上下限）是否属于当前数据的量级邻域，避免远隔千里（如默认 2500）的无效预设撑爆量程
+                    double thresholdSpan = Math.Max(2.0, Math.Max(maxV - minV, Math.Abs(avgV) * 0.4));
+
+                    bool stdRelevant = Math.Abs(StandardValue - avgV) <= thresholdSpan;
+                    bool upperRelevant = Math.Abs(UpperLimit - avgV) <= thresholdSpan;
+                    bool lowerRelevant = Math.Abs(LowerLimit - avgV) <= thresholdSpan;
+
+                    if (stdRelevant)
+                    {
+                        minV = Math.Min(minV, StandardValue);
+                        maxV = Math.Max(maxV, StandardValue);
+                    }
+                    if (upperRelevant)
+                    {
+                        maxV = Math.Max(maxV, UpperLimit);
+                    }
+                    if (lowerRelevant)
+                    {
+                        minV = Math.Min(minV, LowerLimit);
+                    }
+
+                    double span = maxV - minV;
+                    if (span < 0.05)
+                    {
+                        span = 0.1;
+                        double center = (minV + maxV) / 2.0;
+                        minV = center - 0.05;
+                        maxV = center + 0.05;
+                    }
+
+                    // 上下各留 15% 呼吸空间，使波形跳动饱满且美观
+                    double margin = span * 0.15;
+                    currentMin = minV - margin;
+                    currentMax = maxV + margin;
+                }
+                else
+                {
+                    // 暂无数据时，若配置了标准值，聚焦于标准值附近
+                    if (StandardValue > 0)
+                    {
+                        currentMin = Math.Max(0, StandardValue * 0.9);
+                        currentMax = StandardValue * 1.1;
+                    }
+                }
+            }
+
+            // 同步刷新左侧 Y 轴顶底刻度文本
+            if (_topAxisLabel != null)
+            {
+                _topAxisLabel.Text = currentMax.ToString("F3");
+            }
+            if (_bottomAxisLabel != null)
+            {
+                _bottomAxisLabel.Text = currentMin.ToString("F3");
+            }
 
             // ========== 拖拽空气墙物理规则碰撞检测 ==========
             double lastPointX = Math.Max(0, (_valueBuffer.Count - 1) * _xStep);
@@ -321,13 +453,16 @@ namespace LineChart.Controls
             if (_panX < minPanX && !_isFollowing) _panX = minPanX;
             if (_panX > maxPanX) _panX = maxPanX;
 
+            double spanY = currentMax - currentMin;
+            if (spanY < 0.000001) spanY = 1.0;
+
             var points = new List<Point>();
             var polylinePoints = new List<Point>();
             for (int i = 0; i < _valueBuffer.Count; i++)
             {
                 double px = i * _xStep + _panX;
-                double safeVal = _valueBuffer[i] < 0 ? 0 : _valueBuffer[i];
-                double py = h - padding - (safeVal / currentMax * actualH);
+                double safeVal = _valueBuffer[i];
+                double py = (h - padding) - ((safeVal - currentMin) / spanY * actualH);
                 py = Math.Clamp(py, padding, h - padding);
 
                 var pt = new Point(px, py);
@@ -392,7 +527,7 @@ namespace LineChart.Controls
                 _totalCountLabel.Text = $"Total: {_valueBuffer.Count}";
             }
 
-            UpdateLimitLines(h, padding, currentMax, actualH, _valueBuffer.Count > 0 ? _valueBuffer.Average() : 0, _valueBuffer.Count > 0);
+            UpdateLimitLines(h, padding, currentMin, currentMax, actualH, _valueBuffer.Count > 0 ? _valueBuffer.Average() : 0, _valueBuffer.Count > 0);
         }
 
         /// <summary>
@@ -464,37 +599,136 @@ namespace LineChart.Controls
             ChartCaptured?.Invoke(res.Message);
         }
 
-        private void UpdateLimitLines(double h, double padding, double currentMax, double actualH, double avgValue, bool hasData)
+        private class LabelCollisionItem
+        {
+            public TextBlock Label { get; set; } = null!;
+            public double ExactY { get; set; }
+            public double AdjustedY { get; set; }
+            public string Text { get; set; } = "";
+        }
+
+        private void UpdateLimitLines(double h, double padding, double currentMin, double currentMax, double actualH, double avgValue, bool hasData)
         {
             if (_canvas == null) return;
-            void UpdateLineAndLabel(Line? line, TextBlock? label, double val, string prefix, bool show)
+            double span = currentMax - currentMin;
+            if (span < 0.000001) span = 1.0;
+
+            // 1. 物理辅助横线更新（保持真实物理位置不变）
+            void UpdateLineOnly(Line? line, double val, bool show)
             {
-                if (line == null && label == null) return;
-                if (!show)
+                if (line == null) return;
+                // 仅当数值在当前视口范围（包括边缘 5% 缓冲区）内时才绘制，否则隐藏
+                if (!show || val > currentMax + span * 0.05 || val < currentMin - span * 0.05)
                 {
-                    if (line != null) line.IsVisible = false;
-                    if (label != null) label.IsVisible = false;
+                    line.IsVisible = false;
                     return;
                 }
-                double y = (h - padding) - (val / currentMax * actualH);
+                double y = (h - padding) - ((val - currentMin) / span * actualH);
                 y = Math.Clamp(y, padding, h - padding);
-                if (line != null)
+                line.IsVisible = true;
+                line.StartPoint = new Point(-1000000, y);
+                line.EndPoint = new Point(5000000, y);
+            }
+
+            UpdateLineOnly(_upperLine, UpperLimit, true);
+            UpdateLineOnly(_lowerLine, LowerLimit, true);
+            UpdateLineOnly(_stdLine, StandardValue, true);
+            UpdateLineOnly(_avgLine, avgValue, hasData);
+
+            // 2. 收集需要显示的文本标签，用于智能避让重叠
+            var activeLabels = new List<LabelCollisionItem>();
+
+            void CollectLabel(TextBlock? label, double val, string prefix, bool show)
+            {
+                if (label == null) return;
+                if (!show || val > currentMax + span * 0.05 || val < currentMin - span * 0.05)
                 {
-                    line.IsVisible = true;
-                    line.StartPoint = new Point(-1000000, y);
-                    line.EndPoint = new Point(5000000, y);
+                    label.IsVisible = false;
+                    return;
                 }
-                if (label != null)
+                double y = (h - padding) - ((val - currentMin) / span * actualH);
+                y = Math.Clamp(y, padding, h - padding);
+                activeLabels.Add(new LabelCollisionItem
                 {
-                    label.IsVisible = true;
-                    label.Text = prefix + val.ToString("F3");
-                    Canvas.SetTop(label, y - 6);
+                    Label = label,
+                    ExactY = y,
+                    AdjustedY = y,
+                    Text = prefix + val.ToString("F3")
+                });
+            }
+
+            CollectLabel(_upperLabel, UpperLimit, "上限: ", true);
+            CollectLabel(_lowerLabel, LowerLimit, "下限: ", true);
+            CollectLabel(_stdLabel, StandardValue, "标准: ", true);
+            CollectLabel(_avgLabel, avgValue, "均值: ", hasData);
+
+            // 隐藏未在 activeLabels 中的所有辅助标签
+            if (_upperLabel != null && !activeLabels.Any(x => x.Label == _upperLabel)) _upperLabel.IsVisible = false;
+            if (_lowerLabel != null && !activeLabels.Any(x => x.Label == _lowerLabel)) _lowerLabel.IsVisible = false;
+            if (_stdLabel != null && !activeLabels.Any(x => x.Label == _stdLabel)) _stdLabel.IsVisible = false;
+            if (_avgLabel != null && !activeLabels.Any(x => x.Label == _avgLabel)) _avgLabel.IsVisible = false;
+
+            if (activeLabels.Count == 0) return;
+
+            // 3. 标签智能避让算法 (1D Relaxation Collision Resolution)
+            // 按照 Y 坐标从上至下排序（Y 越小越靠近顶部）
+            activeLabels.Sort((a, b) => a.ExactY.CompareTo(b.ExactY));
+
+            const double MinSpacing = 16.0; // 11.5号字舒适行高避让阈值
+
+            // 迭代多轮进行双向挤压避让
+            for (int pass = 0; pass < 6; pass++)
+            {
+                bool adjusted = false;
+                for (int i = 0; i < activeLabels.Count - 1; i++)
+                {
+                    double overlap = MinSpacing - (activeLabels[i + 1].AdjustedY - activeLabels[i].AdjustedY);
+                    if (overlap > 0)
+                    {
+                        adjusted = true;
+                        double halfShift = overlap / 2.0;
+                        activeLabels[i].AdjustedY -= halfShift;
+                        activeLabels[i + 1].AdjustedY += halfShift;
+                    }
+                }
+                if (!adjusted) break;
+            }
+
+            // 4. 边界吸附限制：不遮挡顶部刻度（TopAxisLabel ~32px）与底部刻度（BottomAxisLabel ~h - 22px）
+            double topLimit = 32.0;
+            double bottomLimit = h - 22.0;
+
+            for (int i = 0; i < activeLabels.Count; i++)
+            {
+                if (activeLabels[i].AdjustedY < topLimit)
+                {
+                    activeLabels[i].AdjustedY = topLimit;
+                }
+                if (i > 0 && activeLabels[i].AdjustedY < activeLabels[i - 1].AdjustedY + MinSpacing)
+                {
+                    activeLabels[i].AdjustedY = activeLabels[i - 1].AdjustedY + MinSpacing;
                 }
             }
-            UpdateLineAndLabel(_upperLine, _upperLabel, UpperLimit, "上限:", true);
-            UpdateLineAndLabel(_lowerLine, _lowerLabel, LowerLimit, "下限:", true);
-            UpdateLineAndLabel(_stdLine, _stdLabel, StandardValue, "标准:", true);
-            UpdateLineAndLabel(_avgLine, _avgLabel, avgValue, "均值:", hasData);
+
+            for (int i = activeLabels.Count - 1; i >= 0; i--)
+            {
+                if (activeLabels[i].AdjustedY > bottomLimit)
+                {
+                    activeLabels[i].AdjustedY = bottomLimit;
+                }
+                if (i < activeLabels.Count - 1 && activeLabels[i].AdjustedY > activeLabels[i + 1].AdjustedY - MinSpacing)
+                {
+                    activeLabels[i].AdjustedY = activeLabels[i + 1].AdjustedY - MinSpacing;
+                }
+            }
+
+            // 5. 应用计算出的错开坐标至 Canvas
+            foreach (var item in activeLabels)
+            {
+                item.Label.IsVisible = true;
+                item.Label.Text = item.Text;
+                Canvas.SetTop(item.Label, item.AdjustedY - 7);
+            }
         }
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

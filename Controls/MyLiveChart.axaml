@@ -8,6 +8,7 @@
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <TextBlock Name="FollowStatusBadge" Text="[跟随中]" Foreground="#4CAF50" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Button Name="AutoYBtn" Content="🎯 微观聚焦" FontSize="10" Padding="8,2" Background="#0288D1" Foreground="White" Click="OnToggleAutoYClick" ToolTip.Tip="切换【微观自适应动态聚焦】与【固定全量程】"/>
                     <Button Name="ResetViewBtn" Content="复位视角" FontSize="10" Padding="8,2" Background="#333333" Foreground="#DDD" Click="OnResetViewClick"/>
                     <Button Name="ClearDataBtn" Content="清空" FontSize="10" Padding="8,2" Background="#333333" Foreground="#DDD" Click="OnClearDataClick"/>
                 </StackPanel>
@@ -16,22 +17,22 @@
             </DockPanel>
         </Border>
 
-        <!-- 左侧 Y 轴 -->
-        <Border Grid.Row="1" Grid.Column="0" Background="#252526" Width="95" ClipToBounds="True" BorderBrush="#333333" BorderThickness="0,0,1,0">
+        <!-- 左侧 Y 轴：加宽至 118px，字体放大至 11.5 号并优化防重叠空间 -->
+        <Border Grid.Row="1" Grid.Column="0" Background="#252526" Width="118" ClipToBounds="True" BorderBrush="#333333" BorderThickness="0,0,1,0">
             <Canvas Name="LeftAxisCanvas">
                 <TextBlock Text="{Binding YUnit, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                           Foreground="Cyan" FontSize="10" Canvas.Top="2" Canvas.Left="4"/>
-                <TextBlock Text="{Binding YRangeMax, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat='{}{0:F3}'}"
-                           Foreground="Gray" FontSize="10" Canvas.Top="16" Canvas.Right="5" TextAlignment="Right" Width="85"/>
+                           Foreground="Cyan" FontSize="11.5" FontWeight="SemiBold" Canvas.Top="2" Canvas.Left="6"/>
+                <TextBlock Name="TopAxisLabel" Text="3000.000"
+                           Foreground="#A0A0A0" FontSize="11.5" Canvas.Top="16" Canvas.Right="6" TextAlignment="Right" Width="108"/>
                 
-                <TextBlock Name="UpperLimitLabel" Foreground="Red" FontSize="9" Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
-                <TextBlock Name="LowerLimitLabel" Foreground="Red" FontSize="9" Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
-                <TextBlock Name="StandardLabel" Foreground="Lime" FontSize="9" Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
+                <TextBlock Name="UpperLimitLabel" Foreground="#FF5252" FontSize="11.5" FontWeight="SemiBold" Canvas.Right="6" TextAlignment="Right" Width="108" IsVisible="False"/>
+                <TextBlock Name="LowerLimitLabel" Foreground="#FF5252" FontSize="11.5" FontWeight="SemiBold" Canvas.Right="6" TextAlignment="Right" Width="108" IsVisible="False"/>
+                <TextBlock Name="StandardLabel" Foreground="#69F0AE" FontSize="11.5" FontWeight="SemiBold" Canvas.Right="6" TextAlignment="Right" Width="108" IsVisible="False"/>
                 
-                <TextBlock Name="AverageLabel" Foreground="Orange" FontSize="9" FontWeight="Bold" 
-                           Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
+                <TextBlock Name="AverageLabel" Foreground="#FFB74D" FontSize="11.5" FontWeight="Bold" 
+                           Canvas.Right="6" TextAlignment="Right" Width="108" IsVisible="False"/>
 
-                <TextBlock Text="0.000" Foreground="Gray" FontSize="10" Canvas.Bottom="2" Canvas.Right="5"/>
+                <TextBlock Name="BottomAxisLabel" Text="0.000" Foreground="#A0A0A0" FontSize="11.5" Canvas.Bottom="2" Canvas.Right="6" TextAlignment="Right" Width="108"/>
             </Canvas>
         </Border>
 

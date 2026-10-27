@@ -493,12 +493,11 @@ namespace LineChart.Controls
                         Canvas.SetTop(dot, py - 3);
                         _canvas.Children.Add(dot);
 
-                        // 数据文字一隔一个交替颜色（明黄与青蓝双色交替，配合上下错位更易辨识）
-                        IBrush textColor = i % 2 == 0 ? Brushes.Yellow : Brushes.Cyan;
+                        // 数据文字颜色与对应的圆点颜色保持完全一致（红色点配红字，橙色点配橙字）
                         var label = new TextBlock 
                         { 
                             Text = _valueBuffer[i].ToString("F3"), 
-                            Foreground = textColor, 
+                            Foreground = dotColor, 
                             FontSize = 10,
                             Width = 70,
                             TextAlignment = TextAlignment.Center

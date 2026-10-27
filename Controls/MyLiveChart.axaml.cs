@@ -493,12 +493,13 @@ namespace LineChart.Controls
                         Canvas.SetTop(dot, py - 3);
                         _canvas.Children.Add(dot);
 
-                        // 数据文字颜色与对应的圆点颜色保持完全一致（红色点配红字，橙色点配橙字）
+                        // 数据文字与圆点颜色严格一致（偶数点为红圆点+红字，奇数点为橙圆点+橙字）
                         var label = new TextBlock 
                         { 
                             Text = _valueBuffer[i].ToString("F3"), 
                             Foreground = dotColor, 
                             FontSize = 10,
+                            FontWeight = FontWeight.SemiBold,
                             Width = 70,
                             TextAlignment = TextAlignment.Center
                         };

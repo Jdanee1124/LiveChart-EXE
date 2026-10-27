@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:LineChart.Controls"
+             x:Class="LineChart.Controls.MyLiveChart">
+    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="Auto,*" MinHeight="250">
+        <!-- 标题区域 -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#1E1E1E" Padding="6,8" BorderBrush="#333333" BorderThickness="0,0,0,1">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Name="FollowStatusBadge" Text="[跟随中]" Foreground="#4CAF50" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Button Name="ResetViewBtn" Content="复位视角" FontSize="10" Padding="8,2" Background="#333333" Foreground="#DDD" Click="OnResetViewClick"/>
+                    <Button Name="ClearDataBtn" Content="清空" FontSize="10" Padding="8,2" Background="#333333" Foreground="#DDD" Click="OnClearDataClick"/>
+                </StackPanel>
+                <TextBlock Text="{Binding ChartTitle, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                           Foreground="#E0E0E0" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- 左侧 Y 轴 -->
+        <Border Grid.Row="1" Grid.Column="0" Background="#252526" Width="95" ClipToBounds="True" BorderBrush="#333333" BorderThickness="0,0,1,0">
+            <Canvas Name="LeftAxisCanvas">
+                <TextBlock Text="{Binding YUnit, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                           Foreground="Cyan" FontSize="10" Canvas.Top="2" Canvas.Left="4"/>
+                <TextBlock Text="{Binding YRangeMax, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat='{}{0:F3}'}"
+                           Foreground="Gray" FontSize="10" Canvas.Top="16" Canvas.Right="5" TextAlignment="Right" Width="85"/>
+                
+                <TextBlock Name="UpperLimitLabel" Foreground="Red" FontSize="9" Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
+                <TextBlock Name="LowerLimitLabel" Foreground="Red" FontSize="9" Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
+                <TextBlock Name="StandardLabel" Foreground="Lime" FontSize="9" Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
+                
+                <TextBlock Name="AverageLabel" Foreground="Orange" FontSize="9" FontWeight="Bold" 
+                           Canvas.Right="5" TextAlignment="Right" Width="88" IsVisible="False"/>
+
+                <TextBlock Text="0.000" Foreground="Gray" FontSize="10" Canvas.Bottom="2" Canvas.Right="5"/>
+            </Canvas>
+        </Border>
+
+        <!-- 图表网格与曲线 -->
+        <Border Grid.Row="1" Grid.Column="1" Background="#0F0F0F" ClipToBounds="True">
+            <Canvas Name="GraphCanvas">
+                <Line Name="UpperLimitLine" Stroke="Red" StrokeThickness="1" StrokeDashArray="4,2" IsVisible="False"/>
+                <Line Name="LowerLimitLine" Stroke="Red" StrokeThickness="1" StrokeDashArray="4,2" IsVisible="False"/>
+                <Line Name="StandardLine" Stroke="Lime" StrokeThickness="1" StrokeDashArray="2,2" IsVisible="False"/>
+                
+                <Polyline Name="MainPolyline"
+                          Stroke="{Binding LineColor, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          StrokeThickness="2"/>
+                <Line Name="AverageLine" Stroke="Orange" StrokeThickness="1" StrokeDashArray="4,2" IsVisible="False"/>
+            </Canvas>
+        </Border>
+
+        <!-- 左下角截图按钮 -->
+        <Border Grid.Row="2" Grid.Column="0" Background="#252526" BorderBrush="#333333" BorderThickness="0,1,1,0">
+             <Button Name="CaptureButton" Content="📷 截取图表" FontSize="10" FontWeight="Bold"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    Background="#0288D1" Foreground="White" BorderThickness="0" CornerRadius="0"
+                    Click="OnCaptureChartClick"/>
+        </Border>
+
+        <!-- 底部 X 轴 -->
+        <Border Grid.Row="2" Grid.Column="1" Height="22" Background="#252526" ClipToBounds="True" BorderBrush="#333333" BorderThickness="0,1,0,0">
+            <Grid>
+                <Canvas Name="XAxisCanvas"/>
+                <TextBlock Name="TotalCountLabel"
+                           Text="Total: 0"
+                           Foreground="#A0A0A0"
+                           FontSize="10"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

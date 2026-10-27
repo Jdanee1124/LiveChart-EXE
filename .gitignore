@@ -1,0 +1,15 @@
+## Build and intermediate directories
+[Bb]in/
+[Oo]bj/
+publish/
+
+## Visual Studio cache & user files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Runtime generated files
+config.json
+*.log

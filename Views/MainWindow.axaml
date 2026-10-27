@@ -1,0 +1,231 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LineChart.ViewModels"
+        xmlns:controls="using:LineChart.Controls"
+        x:Class="LineChart.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/app.ico"
+        Title="SHXJ-LiveChart"
+        Width="1080" Height="700"
+        MinWidth="700" MinHeight="480"
+        Background="#181818">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <!-- 顶部工具栏：响应式自适应布局，窗口缩小时自适应换行，彻底杜绝按钮重叠 -->
+        <Border Grid.Row="0" Background="#202020" BorderBrush="#333333" BorderThickness="0,0,0,1" Padding="10,6">
+            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- 模块一：通信控制核心面板（标题、模式选择、动态参数、启停按钮、状态指示灯） -->
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,3,14,3">
+                    <TextBlock Text="SHXJ-LiveChart" Foreground="#4FC3F7" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,2,0"/>
+
+                    <!-- 线缆规格名称 -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="线缆:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding ChartTitle, Mode=TwoWay}" Width="85" Height="28" FontSize="11" VerticalContentAlignment="Center" ToolTip.Tip="当前检测线缆规格名称"/>
+                    </StackPanel>
+
+                    <!-- 通信模式切换下拉框 -->
+                    <ComboBox ItemsSource="{Binding CommTypes}" 
+                              SelectedItem="{Binding SelectedCommType}"
+                              Width="130" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+
+                    <!-- 1. 服务端专属参数输入 -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                IsVisible="{Binding IsServerMode}">
+                        <TextBlock Text="服务IP:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding ServerIp, Mode=TwoWay}" Width="92" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="端口:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding ServerPort, Mode=TwoWay}" Width="52" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 2. 客户端专属参数输入 -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                IsVisible="{Binding IsClientMode}">
+                        <TextBlock Text="目标IP:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding ClientTargetIp, Mode=TwoWay}" Width="92" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="端口:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding ClientTargetPort, Mode=TwoWay}" Width="52" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 3. 串口专属参数输入 -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                IsVisible="{Binding IsSerialMode}">
+                        <TextBlock Text="串口:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding AvailableSerialPorts}" 
+                                  SelectedItem="{Binding SelectedSerialPort}"
+                                  Width="75" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+                        <Button Content="🔄" FontSize="10" Padding="5,3" Background="#333333" Foreground="#DDD"
+                                Command="{Binding RefreshSerialPortsCommand}" ToolTip.Tip="刷新本机可用串口列表"/>
+                        <TextBlock Text="波特率:" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding AvailableBaudRates}" 
+                                  SelectedItem="{Binding SelectedBaudRate}"
+                                  Width="80" Height="28" FontSize="11" VerticalContentAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- 4. 不使用提示 -->
+                    <TextBlock Text="(通信已关闭)" Foreground="#757575" FontSize="11" VerticalAlignment="Center"
+                               IsVisible="{Binding IsNoneMode}"/>
+
+                    <!-- 通信启停按钮 -->
+                    <Button Content="{Binding ConnectButtonText}" 
+                            Classes.active="{Binding IsCommActive}"
+                            IsEnabled="{Binding CanToggleComm}"
+                            FontSize="11" FontWeight="SemiBold" Padding="12,5"
+                            Command="{Binding ToggleCommCommand}">
+                        <Button.Styles>
+                            <Style Selector="Button">
+                                <Setter Property="Background" Value="#0078D4"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Style>
+                            <Style Selector="Button.active">
+                                <Setter Property="Background" Value="#D32F2F"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+
+                    <!-- 状态指示灯与状态文字 -->
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="2,0,0,0">
+                        <Ellipse Width="9" Height="9" Fill="{Binding ConnectionBadgeColor}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ConnectionBadgeText}" Foreground="{Binding ConnectionBadgeColor}" 
+                                   VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 模块二：图表快捷操作按钮组（自适应流动换行，窄窗口下自动排入第二行，绝不重叠） -->
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
+                    <Button Content="⚙️ 参数配置" Background="#333333" Foreground="#E0E0E0" FontSize="11" Padding="8,5" Margin="0,0,6,0"
+                            Command="{Binding ToggleSettingsCommand}" ToolTip.Tip="展开/收起参数配置面板"/>
+                    <Button Content="📊 查看数据" Background="#2E7D32" Foreground="White" FontSize="11" Padding="8,5" Margin="0,0,6,0"
+                            Command="{Binding ViewDataCommand}" ToolTip.Tip="直接用Excel打开今日线缆数据记录"/>
+                    <Button Content="📂 打开目录" Background="#37474F" Foreground="#E0E0E0" FontSize="11" Padding="8,5" Margin="0,0,6,0"
+                            Command="{Binding OpenFolderCommand}" ToolTip.Tip="打开 CSV 存储所在目录"/>
+                    <Button Content="🧹 清空图表" Background="#424242" Foreground="#E0E0E0" FontSize="11" Padding="8,5" Margin="0,0,6,0"
+                            Command="{Binding ClearDataCommand}" ToolTip.Tip="清空当前图表缓冲区"/>
+                    <Button Content="🎯 复位视口" Background="#0288D1" Foreground="White" FontSize="11" Padding="8,5" Margin="0,0,0,0"
+                            Command="{Binding ResetViewCommand}" ToolTip.Tip="复位缩放与平移，开启实时跟随"/>
+                </WrapPanel>
+            </WrapPanel>
+        </Border>
+
+        <!-- 折叠式参数配置抽屉：覆盖台达图表与通信完整参数配置 -->
+        <Border Grid.Row="1" Background="#282828" BorderBrush="#3D3D3D" BorderThickness="0,0,0,1" Padding="15,10"
+                IsVisible="{Binding IsSettingsOpen}">
+            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- 通信模式 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="数据通讯:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <ComboBox ItemsSource="{Binding CommTypes}" SelectedItem="{Binding SelectedCommType}" Width="130" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 服务端参数 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="服务端监听 IP:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding ServerIp, Mode=TwoWay}" Width="110" Height="28" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="服务端端口:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding ServerPort, Mode=TwoWay}" Width="80" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 客户端参数 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="客户端目标 IP:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding ClientTargetIp, Mode=TwoWay}" Width="110" Height="28" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="客户端端口:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding ClientTargetPort, Mode=TwoWay}" Width="80" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 串口参数 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="串口端口:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <ComboBox ItemsSource="{Binding AvailableSerialPorts}" SelectedItem="{Binding SelectedSerialPort}" Width="85" Height="28" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="波特率:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <ComboBox ItemsSource="{Binding AvailableBaudRates}" SelectedItem="{Binding SelectedBaudRate}" Width="85" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 线缆Name -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="线缆Name:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding ChartTitle, Mode=TwoWay}" Width="130" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- Y轴单位 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="Y轴单位:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding YUnit, Mode=TwoWay}" Width="65" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- Y轴量程Max -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="Y轴量程Max:" Foreground="#A0A0A0" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding YRangeMax, Mode=TwoWay}" Width="80" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 上限辅助线 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="上限阈值 (Red):" Foreground="#FF5252" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding UpperLimit, Mode=TwoWay}" Width="80" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 标准参考线 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="标准值 (Lime):" Foreground="#69F0AE" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding StandardValue, Mode=TwoWay}" Width="80" Height="28" FontSize="11"/>
+                </StackPanel>
+
+                <!-- 下限辅助线 -->
+                <StackPanel Orientation="Vertical" Margin="0,0,15,6">
+                    <TextBlock Text="下限阈值 (Red):" Foreground="#FF5252" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBox Text="{Binding LowerLimit, Mode=TwoWay}" Width="80" Height="28" FontSize="11"/>
+                </StackPanel>
+            </WrapPanel>
+        </Border>
+
+        <!-- 核心图表控件区（全屏铺满） -->
+        <Border Grid.Row="2" Background="#0F0F0F">
+            <controls:MyLiveChart Name="ChartControl"
+                                  ChartTitle="{Binding ChartTitle}"
+                                  YUnit="{Binding YUnit}"
+                                  YRangeMax="{Binding YRangeMax}"
+                                  UpperLimit="{Binding UpperLimit}"
+                                  LowerLimit="{Binding LowerLimit}"
+                                  StandardValue="{Binding StandardValue}"/>
+        </Border>
+
+        <!-- 底部状态指示栏 -->
+        <Border Grid.Row="3" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0" Padding="12,5">
+            <DockPanel LastChildFill="True">
+                <!-- 右侧指标统计 -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="最新值:" Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="{Binding LatestValueText}" Foreground="#FFD54F" FontSize="11" FontWeight="Bold"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="均值:" Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="{Binding AverageValueText}" Foreground="#FFB74D" FontSize="11" FontWeight="Bold"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="数据总数:" Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="{Binding TotalPoints}" Foreground="#81C784" FontSize="11" FontWeight="Bold"/>
+                    </StackPanel>
+
+                    <TextBlock Text="存储: D:\MyData" Foreground="#666666" FontSize="11" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 左侧通信状态消息 -->
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="状态:" Foreground="#888888" FontSize="11"/>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#E0E0E0" FontSize="11"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
